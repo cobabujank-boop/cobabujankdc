@@ -3,7 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.join(__dirname, "..", "data");
+const DATA_DIR = process.env.DATA_PATH || path.join(__dirname, "..", "data");
 const STORE_PATH = path.join(DATA_DIR, "key-users.json");
 
 // Default structure
