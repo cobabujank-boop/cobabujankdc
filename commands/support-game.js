@@ -1,38 +1,21 @@
 import {
     SlashCommandBuilder,
+    ActionRowBuilder,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
     PermissionFlagsBits,
     ChannelType,
-    EmbedBuilder,
 } from "discord.js";
+
+// Map temporary untuk nyimpen memori admin mau kirim ke channel mana sebelum modal muncul
+export const pendingSupportTargets = new Map();
 
 export default {
     data: new SlashCommandBuilder()
         .setName("support-game")
-        .setDescription("📢 Kirim embed status Support Game yang rapi & profesional (Admin only)")
+        .setDescription("📢 Kirim embed status Support Game (List banyak game sekaligus) (Admin only)")
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-        .addStringOption((opt) =>
-            opt
-                .setName("game")
-                .setDescription("Nama game yang ingin diupdate statusnya")
-                .setRequired(true)
-        )
-        .addStringOption((opt) =>
-            opt
-                .setName("status")
-                .setDescription("Status dari game saat ini")
-                .setRequired(true)
-                .addChoices(
-                    { name: '🟢 Operational (Lancar)', value: 'operational' },
-                    { name: '🟡 Degraded (Ada Bug/Masalah)', value: 'degraded' },
-                    { name: '🔴 Deprecated (Tidak Diurus/Usang)', value: 'deprecated' }
-                )
-        )
-        .addStringOption((opt) =>
-            opt
-                .setName("image")
-                .setDescription("URL Gambar/Banner Game (Opsional, tapi disarankan agar lebih bagus)")
-                .setRequired(false)
-        )
         .addChannelOption((opt) =>
             opt
                 .setName("channel")
@@ -42,52 +25,61 @@ export default {
         ),
 
     async execute(interaction) {
-        const gameName = interaction.options.getString("game");
-        const statusValue = interaction.options.getString("status");
-        const imageUrl = interaction.options.getString("image");
         const targetChannel = interaction.options.getChannel("channel") ?? interaction.channel;
 
-        await interaction.deferReply({ flags: 64 }); // Ephemeral reply "Sedang diproses..."
+        // Simpan target channel sementara memakai ID user yang mengeksekusi
+        pendingSupportTargets.set(interaction.user.id, targetChannel.id);
 
-        const statusData = {
-            operational: { name: 'Operational', emoji: '🟢', color: '#57F287', desc: 'fully working' },
-            degraded: { name: 'Degraded', emoji: '🟡', color: '#FEE75C', desc: 'works, but buggy' },
-            deprecated: { name: 'Deprecated', emoji: '🔴', color: '#ED4245', desc: 'outdated / unmaintained' },
-        };
+        const modal = new ModalBuilder()
+            .setCustomId("modal_support_game")
+            .setTitle(`Update Status Game`);
 
-        const currentStatus = statusData[statusValue];
+        const titleInput = new TextInputBuilder()
+            .setCustomId("sg_title")
+            .setLabel("Judul Embed (Opsional)")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Contoh: Supported Games")
+            .setRequired(false)
+            .setMaxLength(256);
 
-        const mainEmbed = new EmbedBuilder()
-            .setTitle(`Supported Games`)
-            .setColor(currentStatus.color)
-            .setDescription(`• **${gameName}** [ ${currentStatus.emoji} ]`)
-            .setTimestamp()
-            .setFooter({ text: "Status Update", iconURL: interaction.guild?.iconURL() });
+        const imageInput = new TextInputBuilder()
+            .setCustomId("sg_image")
+            .setLabel("URL Thumbnail (Gambar Kecil di Pojok) Ops.")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Contoh: https://i.imgur.com/xxx.png")
+            .setRequired(false);
 
-        if (imageUrl) {
-            mainEmbed.setImage(imageUrl);
-        }
+        const opInput = new TextInputBuilder()
+            .setCustomId("sg_operational")
+            .setLabel("🟢 Operational (Pisahkan dengan Enter)")
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder("Game Lancar\nGame Lainnya")
+            .setRequired(false);
 
-        // 2. Embed Legend (Keterangan Status) seperti di gambar
-        const legendEmbed = new EmbedBuilder()
-            .setColor("#2b2d31") // Warna gelap khas Discord
-            .setDescription(
-                `🟢 **Operational** — fully working\n` +
-                `🟡 **Degraded** — works, but buggy\n` +
-                `🔴 **Deprecated** — outdated / unmaintained`
-            );
+        const degInput = new TextInputBuilder()
+            .setCustomId("sg_degraded")
+            .setLabel("🟡 Degraded (Pisahkan dengan Enter)")
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder("Game Agak Buggy\nContoh Game")
+            .setRequired(false);
 
-        try {
-            await targetChannel.send({ embeds: [mainEmbed, legendEmbed] });
-            
-            await interaction.editReply({
-                content: `✅ Embed Support Game untuk **${gameName}** berhasil dikirim ke ${targetChannel}!`,
-            });
-        } catch (error) {
-            console.error("Gagal mengirim embed support game:", error);
-            await interaction.editReply({
-                content: `❌ Gagal mengirim embed ke ${targetChannel}. Pastikan bot memiliki izin untuk mengirim pesan dan embed di sana.`,
-            });
-        }
+        const depInput = new TextInputBuilder()
+            .setCustomId("sg_deprecated")
+            .setLabel("🔴 Deprecated (Pisahkan dengan Enter)")
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder("Game Usang\nGame Tidak Diurus")
+            .setRequired(false);
+
+        // Add inputs to modal (max 5)
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(titleInput),
+            new ActionRowBuilder().addComponents(imageInput),
+            new ActionRowBuilder().addComponents(opInput),
+            new ActionRowBuilder().addComponents(degInput),
+            new ActionRowBuilder().addComponents(depInput),
+        );
+
+        // Show modal to user
+        await interaction.showModal(modal);
     },
 };

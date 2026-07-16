@@ -581,6 +581,82 @@ async function handleCustomEmbedModal(interaction) {
 }
 
 // ─────────────────────────────────────────
+// SUPPORT GAME EMBED
+// ─────────────────────────────────────────
+async function handleSupportGameModal(interaction) {
+    await interaction.deferReply({ flags: 64 }); // Ephemeral
+
+    // Ambil data target channel
+    const { pendingSupportTargets } = await import("../commands/support-game.js").catch(() => ({ pendingSupportTargets: new Map() }));
+    const targetChannelId = pendingSupportTargets.get(interaction.user.id);
+
+    if (!targetChannelId) {
+        return interaction.editReply({ content: "❌ Target channel hilang/kadaluarsa. Silakan ketik `/support-game` lagi." });
+    }
+
+    pendingSupportTargets.delete(interaction.user.id);
+
+    const title = interaction.fields.getTextInputValue("sg_title") || "Supported Games";
+    const imageUrl = interaction.fields.getTextInputValue("sg_image");
+    const ops = interaction.fields.getTextInputValue("sg_operational");
+    const degs = interaction.fields.getTextInputValue("sg_degraded");
+    const deps = interaction.fields.getTextInputValue("sg_deprecated");
+
+    let descriptionLines = [];
+
+    // Helper untuk memproses baris game
+    const processLines = (text, emoji) => {
+        if (!text) return;
+        const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+        for (const line of lines) {
+            descriptionLines.push(`• **${line}** [ ${emoji} ]`);
+        }
+    };
+
+    processLines(ops, "🟢");
+    processLines(degs, "🟡");
+    processLines(deps, "🔴");
+
+    if (descriptionLines.length === 0) {
+        return interaction.editReply({ content: "❌ Kamu belum memasukkan game apapun di salah satu kolom status!" });
+    }
+
+    const mainEmbed = new EmbedBuilder()
+        .setTitle(title)
+        .setColor("#2b2d31") // Warna gelap khas Discord atau default
+        .setDescription(descriptionLines.join("\n"))
+        .setFooter({ text: "Status Update", iconURL: interaction.guild?.iconURL() })
+        .setTimestamp();
+
+    if (imageUrl) {
+        try {
+            if (imageUrl.startsWith("http")) mainEmbed.setThumbnail(imageUrl);
+        } catch (e) { }
+    }
+
+    // Embed Legend
+    const legendEmbed = new EmbedBuilder()
+        .setColor("#2b2d31")
+        .setDescription(
+            `🟢 **Operational** — fully working\n` +
+            `🟡 **Degraded** — works, but buggy\n` +
+            `🔴 **Deprecated** — outdated / unmaintained`
+        );
+
+    try {
+        const channel = await interaction.client.channels.fetch(targetChannelId);
+        if (!channel) throw new Error("Channel tidak ditemukan.");
+
+        await channel.send({ embeds: [mainEmbed, legendEmbed] });
+        await interaction.editReply({ content: `✅ Daftar Support Game berhasil dikirim ke ${channel}!` });
+
+    } catch (error) {
+        console.error("Gagal mengirim support game:", error);
+        await interaction.editReply({ content: "❌ Gagal mengirim embed. Pastikan bot punya permission di channel tersebut." });
+    }
+}
+
+// ─────────────────────────────────────────
 // MAIN EXPORT
 // ─────────────────────────────────────────
 export async function handleInteraction(interaction, client) {
@@ -601,6 +677,8 @@ export async function handleInteraction(interaction, client) {
         } else if (interaction.isModalSubmit()) {
             if (interaction.customId === "modal_custom_embed") {
                 await handleCustomEmbedModal(interaction);
+            } else if (interaction.customId === "modal_support_game") {
+                await handleSupportGameModal(interaction);
             } else {
                 await handleModal(interaction);
             }
