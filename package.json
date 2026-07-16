@@ -5,7 +5,7 @@
     "main": "bot.js",
     "type": "module",
     "scripts": {
-        "start": "node bot.js",
+        "start": "node deploy-commands.js && node bot.js",
         "deploy": "node deploy-commands.js"
     },
     "dependencies": {
