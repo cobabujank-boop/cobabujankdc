@@ -803,72 +803,82 @@ async function handleUpdateModalStep2(interaction) {
         const sectionName = parts[0];
         const items = parts.slice(1);
 
-        const emojiMap = {
-            added: "➕",
-            deleted: "➖",
-            removed: "➖",
-            fixed: "🔧",
-            improved: "⚡",
-            changed: "🔄",
-            noted: "📝",
-        };
-        const emoji = emojiMap[sectionName.toLowerCase()] || "•";
+        let prefix = "[ • ]";
+        const sn = sectionName.toLowerCase();
+        if (sn.includes("add")) prefix = "[ + ]";
+        else if (sn.includes("delet") || sn.includes("remov")) prefix = "[ - ]";
+        else if (sn.includes("fix")) prefix = "[ ! ]";
+        else if (sn.includes("improv")) prefix = "[ / ]";
 
-        sections.push({ name: sectionName, items, emoji });
+        sections.push({ name: sectionName, items, prefix });
     }
 
-    const embed = new EmbedBuilder()
-        .setColor(0x6b2fa0)
+    const embeds = [];
+
+    // Embed 1: Info Utama
+    const embed1 = new EmbedBuilder()
+        .setColor(0x2b2d31)
         .setTitle(draft.title);
 
     if (draft.logoUrl) {
         try {
-            if (draft.logoUrl.startsWith("http")) embed.setThumbnail(draft.logoUrl);
+            if (draft.logoUrl.startsWith("http")) embed1.setThumbnail(draft.logoUrl);
         } catch (e) { }
     }
 
-    let infoText = "";
-    infoText += `**Place:** ${draft.gameName}\n`;
-    infoText += `**Version:** ${draft.version}\n`;
+    let desc1 = "";
+    if (draft.pingRole) {
+        desc1 += `<@&${draft.pingRole}>\n`;
+    }
+    desc1 += `• **Place:** ${draft.gameName}\n`;
+    desc1 += `• **Version:** ${draft.version}\n`;
     if (draft.devNotes) {
-        infoText += `**Developer Notes:**\n> ${draft.devNotes.replace(/\n/g, "\n> ")}`;
+        desc1 += `• **Developer Notes:**\n> ${draft.devNotes.replace(/\n/g, "\n> ")}`;
     }
-    embed.setDescription(infoText);
+    embed1.setDescription(desc1);
+    embeds.push(embed1);
 
-    for (const sec of sections) {
-        const bullet = sec.items.map((item) => `\`[ ${sec.emoji} ]\` ${item}`).join("\n");
-        embed.addFields({
-            name: `• **${sec.name}:**`,
-            value: bullet,
-            inline: false,
-        });
+    // Embed 2: Changelog Sections
+    if (sections.length > 0) {
+        const embed2 = new EmbedBuilder()
+            .setColor(0x2b2d31);
+            
+        let desc2 = "";
+        for (let i = 0; i < sections.length; i++) {
+            const sec = sections[i];
+            desc2 += `### • ${sec.name}:\n\n`;
+            
+            const bullet = sec.items.map((item) => `${sec.prefix} ${item}`).join("\n");
+            desc2 += bullet + "\n";
+            
+            if (i < sections.length - 1) {
+                desc2 += `\n---\n\n`;
+            }
+        }
+        embed2.setDescription(desc2);
+        embeds.push(embed2);
     }
-
-    embed.setFooter({
-        text: `Requested by ${interaction.user.tag}`,
-        iconURL: interaction.user.displayAvatarURL(),
-    });
-    embed.setTimestamp();
 
     const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId("btn_report_bug")
             .setLabel("Report Bugs")
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji("🐛"),
+            .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
             .setCustomId("btn_suggest_feature")
             .setLabel("Suggest a Feature")
             .setStyle(ButtonStyle.Secondary)
-            .setEmoji("💡")
     );
 
     try {
         const targetChannel = await interaction.client.channels.fetch(draft.targetChannelId);
         if (!targetChannel) throw new Error("Channel tidak ditemukan");
 
+        // Role ping is inside the embed now, but we can also ping in content to ensure notification if needed.
+        // Usually role mention in embed description doesn't ping, so we might want to put it in content.
+        // Let's keep it in content and embed description as requested by the look of the screenshot.
         const content = draft.pingRole ? `<@&${draft.pingRole}>` : undefined;
-        await targetChannel.send({ content, embeds: [embed], components: [buttons] });
+        await targetChannel.send({ content, embeds, components: [buttons] });
 
         updateDraftMap.delete(interaction.user.id);
         await interaction.editReply({ content: `✅ Update log berhasil dikirim ke ${targetChannel}!` });
