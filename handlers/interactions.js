@@ -5,6 +5,8 @@ import {
     ActionRowBuilder,
     EmbedBuilder,
     PermissionFlagsBits,
+    ButtonBuilder,
+    ButtonStyle
 } from "discord.js";
 import fetch from "node-fetch";
 import { linkKey, getKeyOwner, getUserKeys } from "../utils/keyStore.js";
@@ -133,6 +135,74 @@ async function handleButton(interaction) {
 
     if (id === "btn_findmykey") {
         return handleFindMyKey(interaction);
+    }
+
+    if (id === "btn_report_bug") {
+        if (!interaction.member.roles.cache.has("1468568112273162361")) {
+            return interaction.reply({ content: "❌ Maaf, hanya member Premium yang bisa report bug.", flags: 64 });
+        }
+
+        const reportModal = new ModalBuilder()
+            .setCustomId("modal_report_bug")
+            .setTitle("🐛 Report a Bug");
+
+        reportModal.addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId("bug_title")
+                    .setLabel("Bug Title")
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder("Singkat dan jelas")
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId("bug_description")
+                    .setLabel("Bug Description")
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setPlaceholder("Jelaskan bug yang kamu temukan...")
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId("bug_steps")
+                    .setLabel("Steps to Reproduce (opsional)")
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setPlaceholder("1. Buka menu\n2. Klik X\n3. Bug muncul")
+                    .setRequired(false)
+            )
+        );
+
+        return await interaction.showModal(reportModal);
+    }
+
+    if (id === "btn_suggest_feature") {
+        if (!interaction.member.roles.cache.has("1468568112273162361")) {
+            return interaction.reply({ content: "❌ Maaf, hanya member Premium yang bisa suggest feature.", flags: 64 });
+        }
+
+        const suggestModal = new ModalBuilder()
+            .setCustomId("modal_suggest_feature")
+            .setTitle("💡 Suggest a Feature");
+
+        suggestModal.addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId("feature_name")
+                    .setLabel("Feature Name")
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId("feature_desc")
+                    .setLabel("Why do you want this feature?")
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setRequired(true)
+            )
+        );
+
+        return await interaction.showModal(suggestModal);
     }
 
     if (map[id]) {
@@ -657,6 +727,200 @@ async function handleSupportGameModal(interaction) {
 }
 
 // ─────────────────────────────────────────
+// SEND UPDATE EMBED & HANDLERS
+// ─────────────────────────────────────────
+async function handleUpdateModalStep1(interaction) {
+    const { updateDraftMap } = await import("../commands/send-update.js").catch(() => ({ updateDraftMap: new Map() }));
+    const draft = updateDraftMap.get(interaction.user.id) || {};
+
+    draft.logoUrl = interaction.fields.getTextInputValue("logo_url") || null;
+    draft.title = interaction.fields.getTextInputValue("update_title");
+    draft.gameName = interaction.fields.getTextInputValue("game_name");
+    draft.version = interaction.fields.getTextInputValue("version");
+    draft.devNotes = interaction.fields.getTextInputValue("dev_notes") || null;
+
+    updateDraftMap.set(interaction.user.id, draft);
+
+    const modal2 = new ModalBuilder()
+        .setCustomId("update_modal_step2")
+        .setTitle("Update Log — Isi Changelog");
+
+    for (let i = 1; i <= 5; i++) {
+        const sec = new TextInputBuilder()
+            .setCustomId(`section_${i}`)
+            .setLabel(`Section ${i} (Nama|item1|item2|...)`)
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(false);
+
+        if (i === 1) sec.setPlaceholder("Added|New List Seed|New List Pet");
+        else if (i === 2) sec.setPlaceholder("Deleted|Remove Feature Rollback|Remove Event Guild");
+        else if (i === 3) sec.setPlaceholder("Fixed|Bug xyz|Crash on load");
+        else if (i === 4) sec.setPlaceholder("Improved|Performance|UI");
+        else sec.setPlaceholder("(Opsional)");
+
+        modal2.addComponents(new ActionRowBuilder().addComponents(sec));
+    }
+
+    await interaction.showModal(modal2);
+}
+
+async function handleUpdateModalStep2(interaction) {
+    const { updateDraftMap } = await import("../commands/send-update.js").catch(() => ({ updateDraftMap: new Map() }));
+    const draft = updateDraftMap.get(interaction.user.id);
+
+    if (!draft) {
+        return interaction.reply({
+            content: "❌ Session expired, ulangi /send-update.",
+            flags: 64,
+        });
+    }
+
+    await interaction.deferReply({ flags: 64 });
+
+    const sections = [];
+    for (let i = 1; i <= 5; i++) {
+        const raw = interaction.fields.getTextInputValue(`section_${i}`);
+        if (!raw || !raw.trim()) continue;
+
+        const parts = raw.split("|").map((s) => s.trim()).filter(Boolean);
+        if (parts.length < 2) continue;
+
+        const sectionName = parts[0];
+        const items = parts.slice(1);
+
+        const emojiMap = {
+            added: "➕",
+            deleted: "➖",
+            removed: "➖",
+            fixed: "🔧",
+            improved: "⚡",
+            changed: "🔄",
+            noted: "📝",
+        };
+        const emoji = emojiMap[sectionName.toLowerCase()] || "•";
+
+        sections.push({ name: sectionName, items, emoji });
+    }
+
+    const embed = new EmbedBuilder()
+        .setColor(0x6b2fa0)
+        .setTitle(draft.title);
+
+    if (draft.logoUrl) {
+        try {
+            if (draft.logoUrl.startsWith("http")) embed.setThumbnail(draft.logoUrl);
+        } catch (e) { }
+    }
+
+    let infoText = "";
+    infoText += `**Place:** ${draft.gameName}\n`;
+    infoText += `**Version:** ${draft.version}\n`;
+    if (draft.devNotes) {
+        infoText += `**Developer Notes:**\n> ${draft.devNotes.replace(/\n/g, "\n> ")}`;
+    }
+    embed.setDescription(infoText);
+
+    for (const sec of sections) {
+        const bullet = sec.items.map((item) => `\`[ ${sec.emoji} ]\` ${item}`).join("\n");
+        embed.addFields({
+            name: `• **${sec.name}:**`,
+            value: bullet,
+            inline: false,
+        });
+    }
+
+    embed.setFooter({
+        text: `Requested by ${interaction.user.tag}`,
+        iconURL: interaction.user.displayAvatarURL(),
+    });
+    embed.setTimestamp();
+
+    const buttons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId("btn_report_bug")
+            .setLabel("Report Bugs")
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji("🐛"),
+        new ButtonBuilder()
+            .setCustomId("btn_suggest_feature")
+            .setLabel("Suggest a Feature")
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji("💡")
+    );
+
+    try {
+        const targetChannel = await interaction.client.channels.fetch(draft.targetChannelId);
+        if (!targetChannel) throw new Error("Channel tidak ditemukan");
+
+        const content = draft.pingRole ? `<@&${draft.pingRole}>` : undefined;
+        await targetChannel.send({ content, embeds: [embed], components: [buttons] });
+
+        updateDraftMap.delete(interaction.user.id);
+        await interaction.editReply({ content: `✅ Update log berhasil dikirim ke ${targetChannel}!` });
+    } catch (error) {
+        console.error("Gagal mengirim update log:", error);
+        await interaction.editReply({ content: "❌ Gagal mengirim update log. Pastikan bot punya permission di channel tersebut." });
+    }
+}
+
+async function handleReportBugModal(interaction) {
+    await interaction.deferReply({ flags: 64 });
+
+    const title = interaction.fields.getTextInputValue("bug_title");
+    const desc = interaction.fields.getTextInputValue("bug_description");
+    const steps = interaction.fields.getTextInputValue("bug_steps") || null;
+
+    const bugEmbed = new EmbedBuilder()
+        .setColor(0xff4444)
+        .setTitle(`🐛 Bug Report — ${title}`)
+        .setDescription(desc)
+        .setFooter({
+            text: `Reported by ${interaction.user.tag}`,
+            iconURL: interaction.user.displayAvatarURL(),
+        })
+        .setTimestamp();
+
+    if (steps) bugEmbed.addFields({ name: "Steps to Reproduce", value: steps });
+
+    try {
+        const bugChannel = await interaction.client.channels.fetch("1468470097273163836"); // Report Bug Channel
+        if (bugChannel) await bugChannel.send({ embeds: [bugEmbed] });
+        
+        await interaction.editReply({ content: "✅ Bug report kamu udah dikirim, makasih!" });
+    } catch (e) {
+        console.error("Gagal kirim bug report:", e);
+        await interaction.editReply({ content: "❌ Gagal mengirim bug report, pastikan channel ID benar dan bot punya akses." });
+    }
+}
+
+async function handleSuggestFeatureModal(interaction) {
+    await interaction.deferReply({ flags: 64 });
+
+    const name = interaction.fields.getTextInputValue("feature_name");
+    const desc = interaction.fields.getTextInputValue("feature_desc");
+
+    const suggestEmbed = new EmbedBuilder()
+        .setColor(0x00bfff)
+        .setTitle(`💡 Feature Suggestion — ${name}`)
+        .setDescription(desc)
+        .setFooter({
+            text: `Suggested by ${interaction.user.tag}`,
+            iconURL: interaction.user.displayAvatarURL(),
+        })
+        .setTimestamp();
+
+    try {
+        const suggestChannel = await interaction.client.channels.fetch("1528572127635177595"); // Suggestion Channel
+        if (suggestChannel) await suggestChannel.send({ embeds: [suggestEmbed] });
+        
+        await interaction.editReply({ content: "✅ Suggestion kamu udah dikirim, makasih!" });
+    } catch (e) {
+        console.error("Gagal kirim suggestion:", e);
+        await interaction.editReply({ content: "❌ Gagal mengirim suggestion, pastikan channel ID benar dan bot punya akses." });
+    }
+}
+
+// ─────────────────────────────────────────
 // MAIN EXPORT
 // ─────────────────────────────────────────
 export async function handleInteraction(interaction, client) {
@@ -679,6 +943,14 @@ export async function handleInteraction(interaction, client) {
                 await handleCustomEmbedModal(interaction);
             } else if (interaction.customId === "modal_support_game") {
                 await handleSupportGameModal(interaction);
+            } else if (interaction.customId === "update_modal_step1") {
+                await handleUpdateModalStep1(interaction);
+            } else if (interaction.customId === "update_modal_step2") {
+                await handleUpdateModalStep2(interaction);
+            } else if (interaction.customId === "modal_report_bug") {
+                await handleReportBugModal(interaction);
+            } else if (interaction.customId === "modal_suggest_feature") {
+                await handleSuggestFeatureModal(interaction);
             } else {
                 await handleModal(interaction);
             }
