@@ -26,12 +26,6 @@ export default {
                 .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
                 .setRequired(true)
         )
-        .addRoleOption((opt) =>
-            opt
-                .setName("role")
-                .setDescription("Role yang ingin di-tag (opsional)")
-                .setRequired(false)
-        )
         .addStringOption((opt) =>
             opt
                 .setName("script-type")
@@ -41,6 +35,12 @@ export default {
                     { name: "🆓 Freemium Script", value: "freemium" }
                 )
                 .setRequired(true)
+        )
+        .addRoleOption((opt) =>
+            opt
+                .setName("role")
+                .setDescription("Role yang ingin di-tag (opsional)")
+                .setRequired(false)
         ),
 
     async execute(interaction) {
@@ -92,7 +92,7 @@ export default {
             .setCustomId("dev_notes")
             .setLabel("Developer Notes (opsional)")
             .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder("Found any bugs or issues? Feel free to report them!\nGot ideas or suggestions? We'd love to hear them!")
+            .setPlaceholder("Found any bugs? Report them! Got suggestions? Tell us!")
             .setRequired(false);
 
         modal1.addComponents(
