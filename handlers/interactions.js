@@ -816,12 +816,12 @@ async function handleUpdateModalStep2(interaction) {
     // ── Embed 1: Info Utama ──
     const embed1 = new EmbedBuilder().setColor(0x6b2fa0);
 
-    let desc1 = `**${draft.title}**\n`;
-    if (draft.pingRole) desc1 += `<@&${draft.pingRole}>\n`;
-    desc1 += `• **Place:** ${draft.gameName}\n`;
-    desc1 += `• **Version:** ${draft.version}\n`;
+    let desc1 = `**${draft.title}**\n\n`;
+    if (draft.pingRole) desc1 += `<@&${draft.pingRole}>\n\n`;
+    desc1 += `• **Place:** ${draft.gameName}\n\n`;
+    desc1 += `• **Version:** ${draft.version}\n\n`;
     if (draft.devNotes) {
-        desc1 += `• **Developer Notes:**\n> ${draft.devNotes.replace(/\n/g, "\n> ")}`;
+        desc1 += `• **Developer Notes:**\n> ${draft.devNotes.replace(/\n/g, "\n> ")}\n\n`;
     }
     embed1.setDescription(desc1);
 
@@ -833,6 +833,12 @@ async function handleUpdateModalStep2(interaction) {
 
     // ── Embed 2: Changelog Sections ──
     const embed2 = new EmbedBuilder().setColor(0x6b2fa0);
+
+    if (draft.logoUrl) {
+        try {
+            if (draft.logoUrl.startsWith("http")) embed2.setThumbnail(draft.logoUrl);
+        } catch (e) { }
+    }
 
     let changelogText = "";
     for (let i = 0; i < sections.length; i++) {
