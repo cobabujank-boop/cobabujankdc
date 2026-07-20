@@ -205,6 +205,30 @@ async function handleButton(interaction) {
         return await interaction.showModal(suggestModal);
     }
 
+    if (id === "btn_update_step2") {
+        const modal2 = new ModalBuilder()
+            .setCustomId("update_modal_step2")
+            .setTitle("Update Log — Isi Changelog");
+
+        for (let i = 1; i <= 5; i++) {
+            const sec = new TextInputBuilder()
+                .setCustomId(`section_${i}`)
+                .setLabel(`Section ${i} (Nama|item1|item2|...)`)
+                .setStyle(TextInputStyle.Paragraph)
+                .setRequired(false);
+
+            if (i === 1) sec.setPlaceholder("Added|New List Seed|New List Pet");
+            else if (i === 2) sec.setPlaceholder("Deleted|Remove Feature Rollback|Remove Event Guild");
+            else if (i === 3) sec.setPlaceholder("Fixed|Bug xyz|Crash on load");
+            else if (i === 4) sec.setPlaceholder("Improved|Performance|UI");
+            else sec.setPlaceholder("(Opsional)");
+
+            modal2.addComponents(new ActionRowBuilder().addComponents(sec));
+        }
+
+        return await interaction.showModal(modal2);
+    }
+
     if (map[id]) {
         await interaction.showModal(modal(...map[id]));
     }
@@ -741,27 +765,18 @@ async function handleUpdateModalStep1(interaction) {
 
     updateDraftMap.set(interaction.user.id, draft);
 
-    const modal2 = new ModalBuilder()
-        .setCustomId("update_modal_step2")
-        .setTitle("Update Log — Isi Changelog");
+    const btnNext = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId("btn_update_step2")
+            .setLabel("Lanjut Isi Changelog ➡️")
+            .setStyle(ButtonStyle.Primary)
+    );
 
-    for (let i = 1; i <= 5; i++) {
-        const sec = new TextInputBuilder()
-            .setCustomId(`section_${i}`)
-            .setLabel(`Section ${i} (Nama|item1|item2|...)`)
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(false);
-
-        if (i === 1) sec.setPlaceholder("Added|New List Seed|New List Pet");
-        else if (i === 2) sec.setPlaceholder("Deleted|Remove Feature Rollback|Remove Event Guild");
-        else if (i === 3) sec.setPlaceholder("Fixed|Bug xyz|Crash on load");
-        else if (i === 4) sec.setPlaceholder("Improved|Performance|UI");
-        else sec.setPlaceholder("(Opsional)");
-
-        modal2.addComponents(new ActionRowBuilder().addComponents(sec));
-    }
-
-    await interaction.showModal(modal2);
+    await interaction.reply({
+        content: "✅ **Step 1 berhasil disimpan!**\nSilakan klik tombol di bawah untuk melanjutkan pengisian Changelog (Added, Fixed, dll).",
+        components: [btnNext],
+        flags: 64 // Ephemeral
+    });
 }
 
 async function handleUpdateModalStep2(interaction) {
