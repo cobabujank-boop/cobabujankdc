@@ -792,8 +792,6 @@ async function handleUpdateModalStep2(interaction) {
 
     await interaction.deferReply({ flags: 64 });
 
-    const SEPARATOR = "─".repeat(45);
-
     const sections = [];
     for (let i = 1; i <= 5; i++) {
         const raw = interaction.fields.getTextInputValue(`section_${i}`);
@@ -839,21 +837,13 @@ async function handleUpdateModalStep2(interaction) {
     for (let i = 0; i < sections.length; i++) {
         const sec = sections[i];
         const bullet = sec.items.map((item) => `${sec.prefix} ${item}`).join("\n");
-        const fieldValue = i < sections.length - 1
-            ? `${bullet}\n\n${SEPARATOR}`
-            : bullet;
 
         embed2.addFields({
             name: `• **${sec.name}:**`,
-            value: fieldValue,
+            value: bullet,
             inline: false,
         });
     }
-
-    // ── Embed 3: Spacer buat buttons ──
-    const embed3 = new EmbedBuilder()
-        .setColor(0x6b2fa0)
-        .setDescription("\u200b");
 
     const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -870,7 +860,7 @@ async function handleUpdateModalStep2(interaction) {
         const targetChannel = await interaction.client.channels.fetch(draft.targetChannelId);
         if (!targetChannel) throw new Error("Channel tidak ditemukan");
 
-        const embeds = sections.length > 0 ? [embed1, embed2, embed3] : [embed1, embed3];
+        const embeds = sections.length > 0 ? [embed1, embed2] : [embed1];
         await targetChannel.send({ embeds, components: [buttons] });
 
         updateDraftMap.delete(interaction.user.id);
