@@ -870,11 +870,7 @@ async function handleUpdateModalStep2(interaction) {
         embed.setImage(draft.bannerUrl);
     }
 
-    embed.setFooter({
-        text: "KingVypers Update Logs",
-        iconURL: "https://raw.githubusercontent.com/taurusss1000-design/web/refs/heads/main/Kingvyperslogo.jpg"
-    });
-    embed.setTimestamp();
+
 
     // ── Buttons (tetap sama) ──
     const buttons = new ActionRowBuilder().addComponents(
