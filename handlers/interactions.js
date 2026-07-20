@@ -859,7 +859,7 @@ async function handleUpdateModalStep2(interaction) {
         await targetChannel.send({ embeds: [embed], components: [buttons] });
 
         updateDraftMap.delete(interaction.user.id);
-        await interaction.editReply({ content: \`✅ Update log berhasil dikirim ke ${targetChannel}!\` });
+        await interaction.editReply({ content: `✅ Update log berhasil dikirim ke ${targetChannel}!` });
     } catch (error) {
         console.error("Gagal mengirim update log:", error);
         await interaction.editReply({ content: "❌ Gagal mengirim update log. Pastikan bot punya permission di channel tersebut." });
