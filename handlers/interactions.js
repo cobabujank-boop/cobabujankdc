@@ -837,31 +837,29 @@ async function handleUpdateModalStep2(interaction) {
 
     let desc = "";
 
-    // Role ping (visual di embed)
-    if (draft.pingRole) desc += `<@&${draft.pingRole}>\n`;
+    // Judul besar (Header 1 markdown) di paling atas
+    desc += `# ${draft.title}\n`;
 
-    // Script type
+    // Role ping (visual di embed) & Script type di bawah judul
+    if (draft.pingRole) desc += `<@&${draft.pingRole}> `;
     desc += `${scriptBadge}\n\n`;
-
-    // Judul besar (Header 2 markdown)
-    desc += `## ${draft.title}\n\n`;
 
     // Game Place & Version
     desc += `• **Game Place:** ${draft.gameName}\n`;
-    desc += `• **Version:** ${draft.version}\n\n`;
+    desc += `• **Version:** ${draft.version}\n`;
 
     // Developer Notes (blockquote style)
     if (draft.devNotes) {
-        desc += `• **Developer Notes:**\n> ${draft.devNotes.replace(/\n/g, "\n> ")}\n\n`;
+        desc += `\n• **Developer Notes:**\n> ${draft.devNotes.replace(/\n/g, "\n> ")}\n`;
     }
 
     // Changelog sections
     if (sections.length > 0) {
-        desc += `${DIV}\n\n`;
+        desc += `\n${DIV}\n`;
         for (const sec of sections) {
             desc += `**${sec.name}:**\n`;
             desc += sec.items.map((item) => `${sec.prefix} ${item}`).join("\n");
-            desc += `\n${DIV}\n\n`;
+            desc += `\n${DIV}\n`;
         }
     }
 
