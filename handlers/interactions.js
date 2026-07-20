@@ -717,7 +717,7 @@ async function handleSupportGameModal(interaction) {
 
     const mainEmbed = new EmbedBuilder()
         .setTitle(title)
-        .setColor("#2b2d31") // Warna gelap khas Discord atau default
+        .setColor("#2b2d31")
         .setDescription(descriptionLines.join("\n"))
         .setFooter({ text: "Status Update", iconURL: interaction.guild?.iconURL() })
         .setTimestamp();
@@ -775,7 +775,7 @@ async function handleUpdateModalStep1(interaction) {
     await interaction.reply({
         content: "✅ **Step 1 berhasil disimpan!**\nSilakan klik tombol di bawah untuk melanjutkan pengisian Changelog (Added, Fixed, dll).",
         components: [btnNext],
-        flags: 64 // Ephemeral
+        flags: 64
     });
 }
 
@@ -791,6 +791,8 @@ async function handleUpdateModalStep2(interaction) {
     }
 
     await interaction.deferReply({ flags: 64 });
+
+    const SEPARATOR = "─".repeat(45);
 
     const sections = [];
     for (let i = 1; i <= 5; i++) {
@@ -813,33 +815,45 @@ async function handleUpdateModalStep2(interaction) {
         sections.push({ name: sectionName, items, prefix });
     }
 
-    const embed = new EmbedBuilder()
-        .setColor(0x2b2d31);
+    // ── Embed 1: Info Utama ──
+    const embed1 = new EmbedBuilder().setColor(0x6b2fa0);
+
+    let desc1 = `**${draft.title}**\n`;
+    if (draft.pingRole) desc1 += `<@&${draft.pingRole}>\n`;
+    desc1 += `• **Place:** ${draft.gameName}\n`;
+    desc1 += `• **Version:** ${draft.version}\n`;
+    if (draft.devNotes) {
+        desc1 += `• **Developer Notes:**\n> ${draft.devNotes.replace(/\n/g, "\n> ")}`;
+    }
+    embed1.setDescription(desc1);
 
     if (draft.logoUrl) {
         try {
-            if (draft.logoUrl.startsWith("http")) embed.setThumbnail(draft.logoUrl);
+            if (draft.logoUrl.startsWith("http")) embed1.setThumbnail(draft.logoUrl);
         } catch (e) { }
     }
 
-    let desc = `## ${draft.title}\n`;
-    if (draft.pingRole) {
-        desc += `<@&${draft.pingRole}>\n`;
-    }
-    desc += `- **Place:** ${draft.gameName}\n`;
-    desc += `- **Version:** ${draft.version}\n`;
-    if (draft.devNotes) {
-        desc += `- **Developer Notes:**\n> ${draft.devNotes.replace(/\n/g, "\n> ")}\n`;
-    }
+    // ── Embed 2: Changelog Sections ──
+    const embed2 = new EmbedBuilder().setColor(0x6b2fa0);
 
     for (let i = 0; i < sections.length; i++) {
         const sec = sections[i];
-        desc += `### - ${sec.name}:\n`;
         const bullet = sec.items.map((item) => `${sec.prefix} ${item}`).join("\n");
-        desc += bullet + "\n";
+        const fieldValue = i < sections.length - 1
+            ? `${bullet}\n\n${SEPARATOR}`
+            : bullet;
+
+        embed2.addFields({
+            name: `• **${sec.name}:**`,
+            value: fieldValue,
+            inline: false,
+        });
     }
 
-    embed.setDescription(desc);
+    // ── Embed 3: Spacer buat buttons ──
+    const embed3 = new EmbedBuilder()
+        .setColor(0x6b2fa0)
+        .setDescription("\u200b");
 
     const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -856,7 +870,8 @@ async function handleUpdateModalStep2(interaction) {
         const targetChannel = await interaction.client.channels.fetch(draft.targetChannelId);
         if (!targetChannel) throw new Error("Channel tidak ditemukan");
 
-        await targetChannel.send({ embeds: [embed], components: [buttons] });
+        const embeds = sections.length > 0 ? [embed1, embed2, embed3] : [embed1, embed3];
+        await targetChannel.send({ embeds, components: [buttons] });
 
         updateDraftMap.delete(interaction.user.id);
         await interaction.editReply({ content: `✅ Update log berhasil dikirim ke ${targetChannel}!` });
