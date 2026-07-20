@@ -831,21 +831,9 @@ async function handleUpdateModalStep2(interaction) {
         : "🆓 **Freemium Script**";
 
     // ══════════════════════════════════════════
-    // Embed 1: Banner Image (lebar di atas)
+    // Single Embed: Banner + Info + Changelog
     // ══════════════════════════════════════════
-    const embeds = [];
-
-    if (draft.bannerUrl) {
-        const bannerEmbed = new EmbedBuilder()
-            .setColor(0x6b2fa0)
-            .setImage(draft.bannerUrl);
-        embeds.push(bannerEmbed);
-    }
-
-    // ══════════════════════════════════════════
-    // Embed 2: Main Content (Info + Changelog)
-    // ══════════════════════════════════════════
-    const mainEmbed = new EmbedBuilder().setColor(0x6b2fa0);
+    const embed = new EmbedBuilder().setColor(0x6b2fa0);
 
     let desc = "";
 
@@ -877,14 +865,18 @@ async function handleUpdateModalStep2(interaction) {
         }
     }
 
-    mainEmbed.setDescription(desc.trim());
-    mainEmbed.setFooter({
+    embed.setDescription(desc.trim());
+
+    // Banner image (di dalam embed yang sama)
+    if (draft.bannerUrl) {
+        embed.setImage(draft.bannerUrl);
+    }
+
+    embed.setFooter({
         text: "KingVypers Update Logs",
         iconURL: "https://raw.githubusercontent.com/taurusss1000-design/web/refs/heads/main/Kingvyperslogo.jpg"
     });
-    mainEmbed.setTimestamp();
-
-    embeds.push(mainEmbed);
+    embed.setTimestamp();
 
     // ── Buttons (tetap sama) ──
     const buttons = new ActionRowBuilder().addComponents(
@@ -902,10 +894,7 @@ async function handleUpdateModalStep2(interaction) {
         const targetChannel = await interaction.client.channels.fetch(draft.targetChannelId);
         if (!targetChannel) throw new Error("Channel tidak ditemukan");
 
-        // Kirim role ping di content biar beneran ke-ping
-        const content = draft.pingRole ? `<@&${draft.pingRole}>` : undefined;
-
-        await targetChannel.send({ content, embeds, components: [buttons] });
+        await targetChannel.send({ embeds: [embed], components: [buttons] });
 
         updateDraftMap.delete(interaction.user.id);
         await interaction.editReply({ content: `✅ Update log berhasil dikirim ke ${targetChannel}!` });
