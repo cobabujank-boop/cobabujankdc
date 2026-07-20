@@ -217,11 +217,11 @@ async function handleButton(interaction) {
                 .setStyle(TextInputStyle.Paragraph)
                 .setRequired(false);
 
-            if (i === 1) sec.setPlaceholder("Added|New List Seed|New List Pet");
-            else if (i === 2) sec.setPlaceholder("Deleted|Remove Feature Rollback|Remove Event Guild");
-            else if (i === 3) sec.setPlaceholder("Fixed|Bug xyz|Crash on load");
-            else if (i === 4) sec.setPlaceholder("Improved|Performance|UI");
-            else sec.setPlaceholder("(Opsional)");
+            if (i === 1) sec.setPlaceholder("+|Added|New List Seed|New List Pet");
+            else if (i === 2) sec.setPlaceholder("-|Deleted|Remove Feature Rollback|Remove Event Guild");
+            else if (i === 3) sec.setPlaceholder("!|Fixed|Bug xyz|Crash on load");
+            else if (i === 4) sec.setPlaceholder("/|Improved|Performance|UI");
+            else sec.setPlaceholder("(Opsional) ex: ~|Note|Something to note");
 
             modal2.addComponents(new ActionRowBuilder().addComponents(sec));
         }
@@ -800,15 +800,27 @@ async function handleUpdateModalStep2(interaction) {
         const parts = raw.split("|").map((s) => s.trim()).filter(Boolean);
         if (parts.length < 2) continue;
 
-        const sectionName = parts[0];
-        const items = parts.slice(1);
-
+        // Cek apakah karakter pertama adalah prefix manual
+        const prefixMap = { "+": "[ + ]", "-": "[ - ]", "!": "[ ! ]", "/": "[ / ]", "~": "[ ~ ]" };
         let prefix = "[ • ]";
-        const sn = sectionName.toLowerCase();
-        if (sn.includes("add")) prefix = "[ + ]";
-        else if (sn.includes("delet") || sn.includes("remov")) prefix = "[ - ]";
-        else if (sn.includes("fix")) prefix = "[ ! ]";
-        else if (sn.includes("improv")) prefix = "[ / ]";
+        let nameIndex = 0;
+
+        if (prefixMap[parts[0]]) {
+            prefix = prefixMap[parts[0]];
+            nameIndex = 1;
+        }
+
+        const sectionName = parts[nameIndex] || "Section";
+        const items = parts.slice(nameIndex + 1);
+
+        // Auto-detect fallback jika user nggak ngetik prefix +|-|dll
+        if (nameIndex === 0) {
+            const sn = sectionName.toLowerCase();
+            if (sn.includes("add")) prefix = "[ + ]";
+            else if (sn.includes("delet") || sn.includes("remov")) prefix = "[ - ]";
+            else if (sn.includes("fix")) prefix = "[ ! ]";
+            else if (sn.includes("improv")) prefix = "[ / ]";
+        }
 
         sections.push({ name: sectionName, items, prefix });
     }
@@ -840,7 +852,7 @@ async function handleUpdateModalStep2(interaction) {
 
         embed2.addFields({
             name: `• **${sec.name}:**`,
-            value: bullet + "\n" + "─".repeat(47),
+            value: bullet + "\n" + "▬".repeat(28),
             inline: false,
         });
     }
