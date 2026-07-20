@@ -751,13 +751,13 @@ async function handleSupportGameModal(interaction) {
 }
 
 // ─────────────────────────────────────────
-// SEND UPDATE EMBED & HANDLERS
+// SEND UPDATE EMBED & HANDLERS (Velocity Style)
 // ─────────────────────────────────────────
 async function handleUpdateModalStep1(interaction) {
     const { updateDraftMap } = await import("../commands/send-update.js").catch(() => ({ updateDraftMap: new Map() }));
     const draft = updateDraftMap.get(interaction.user.id) || {};
 
-    draft.logoUrl = interaction.fields.getTextInputValue("logo_url") || null;
+    draft.bannerUrl = interaction.fields.getTextInputValue("banner_url") || null;
     draft.title = interaction.fields.getTextInputValue("update_title");
     draft.gameName = interaction.fields.getTextInputValue("game_name");
     draft.version = interaction.fields.getTextInputValue("version");
@@ -792,6 +792,7 @@ async function handleUpdateModalStep2(interaction) {
 
     await interaction.deferReply({ flags: 64 });
 
+    // ── Parse changelog sections ──
     const sections = [];
     for (let i = 1; i <= 5; i++) {
         const raw = interaction.fields.getTextInputValue(`section_${i}`);
@@ -800,7 +801,6 @@ async function handleUpdateModalStep2(interaction) {
         const parts = raw.split("|").map((s) => s.trim()).filter(Boolean);
         if (parts.length < 2) continue;
 
-        // Cek apakah karakter pertama adalah prefix manual
         const prefixMap = { "+": "[ + ]", "-": "[ - ]", "!": "[ ! ]", "/": "[ / ]", "~": "[ ~ ]" };
         let prefix = "[ • ]";
         let nameIndex = 0;
@@ -813,10 +813,10 @@ async function handleUpdateModalStep2(interaction) {
         const sectionName = parts[nameIndex] || "Section";
         const items = parts.slice(nameIndex + 1);
 
-        // Auto-detect fallback jika user nggak ngetik prefix +|-|dll
+        // Auto-detect fallback
         if (nameIndex === 0) {
             const sn = sectionName.toLowerCase();
-            if (sn.includes("add")) prefix = "[ + ]";
+            if (sn.includes("add") || sn.includes("update")) prefix = "[ + ]";
             else if (sn.includes("delet") || sn.includes("remov")) prefix = "[ - ]";
             else if (sn.includes("fix")) prefix = "[ ! ]";
             else if (sn.includes("improv")) prefix = "[ / ]";
@@ -825,38 +825,68 @@ async function handleUpdateModalStep2(interaction) {
         sections.push({ name: sectionName, items, prefix });
     }
 
-    // ── Embed 1: Info Utama ──
-    const embed1 = new EmbedBuilder().setColor(0x6b2fa0);
+    // ── Script type badge ──
+    const scriptBadge = draft.scriptType === "premium"
+        ? "💎 **Premium Script**"
+        : "🆓 **Freemium Script**";
 
-    let desc1 = `**${draft.title}**\n\n`;
-    if (draft.pingRole) desc1 += `<@&${draft.pingRole}>\n\n`;
-    desc1 += `• **Place:** ${draft.gameName}\n\n`;
-    desc1 += `• **Version:** ${draft.version}\n\n`;
+    // ══════════════════════════════════════════
+    // Embed 1: Banner Image (lebar di atas)
+    // ══════════════════════════════════════════
+    const embeds = [];
+
+    if (draft.bannerUrl) {
+        const bannerEmbed = new EmbedBuilder()
+            .setColor(0x6b2fa0)
+            .setImage(draft.bannerUrl);
+        embeds.push(bannerEmbed);
+    }
+
+    // ══════════════════════════════════════════
+    // Embed 2: Main Content (Info + Changelog)
+    // ══════════════════════════════════════════
+    const mainEmbed = new EmbedBuilder().setColor(0x6b2fa0);
+
+    let desc = "";
+
+    // Role ping (visual di embed)
+    if (draft.pingRole) desc += `<@&${draft.pingRole}>\n`;
+
+    // Script type
+    desc += `${scriptBadge}\n\n`;
+
+    // Judul besar (Header 2 markdown)
+    desc += `## ${draft.title}\n\n`;
+
+    // Game Place & Version
+    desc += `• **Game Place:** ${draft.gameName}\n`;
+    desc += `• **Version:** ${draft.version}\n\n`;
+
+    // Developer Notes (blockquote style)
     if (draft.devNotes) {
-        desc1 += `• **Developer Notes:**\n> ${draft.devNotes.replace(/\n/g, "\n> ")}\n\n`;
-    }
-    embed1.setDescription(desc1);
-
-    if (draft.logoUrl) {
-        try {
-            if (draft.logoUrl.startsWith("http")) embed1.setThumbnail(draft.logoUrl);
-        } catch (e) { }
+        desc += `• **Developer Notes:**\n> ${draft.devNotes.replace(/\n/g, "\n> ")}\n\n`;
     }
 
-    // ── Embed 2: Changelog Sections ──
-    const embed2 = new EmbedBuilder().setColor(0x6b2fa0);
-
-    for (let i = 0; i < sections.length; i++) {
-        const sec = sections[i];
-        const bullet = sec.items.map((item) => `${sec.prefix} ${item}`).join("\n");
-
-        embed2.addFields({
-            name: `• **${sec.name}:**`,
-            value: bullet + "\n" + "▬".repeat(32),
-            inline: false,
-        });
+    // Changelog sections
+    if (sections.length > 0) {
+        desc += `${DIV}\n\n`;
+        for (const sec of sections) {
+            desc += `**${sec.name}:**\n`;
+            desc += sec.items.map((item) => `${sec.prefix} ${item}`).join("\n");
+            desc += `\n${DIV}\n\n`;
+        }
     }
 
+    mainEmbed.setDescription(desc.trim());
+    mainEmbed.setFooter({
+        text: "KingVypers Update Logs",
+        iconURL: "https://raw.githubusercontent.com/taurusss1000-design/web/refs/heads/main/Kingvyperslogo.jpg"
+    });
+    mainEmbed.setTimestamp();
+
+    embeds.push(mainEmbed);
+
+    // ── Buttons (tetap sama) ──
     const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId("btn_report_bug")
@@ -872,8 +902,10 @@ async function handleUpdateModalStep2(interaction) {
         const targetChannel = await interaction.client.channels.fetch(draft.targetChannelId);
         if (!targetChannel) throw new Error("Channel tidak ditemukan");
 
-        const embeds = sections.length > 0 ? [embed1, embed2] : [embed1];
-        await targetChannel.send({ embeds, components: [buttons] });
+        // Kirim role ping di content biar beneran ke-ping
+        const content = draft.pingRole ? `<@&${draft.pingRole}>` : undefined;
+
+        await targetChannel.send({ content, embeds, components: [buttons] });
 
         updateDraftMap.delete(interaction.user.id);
         await interaction.editReply({ content: `✅ Update log berhasil dikirim ke ${targetChannel}!` });
@@ -905,7 +937,7 @@ async function handleReportBugModal(interaction) {
     try {
         const bugChannel = await interaction.client.channels.fetch("1468470097273163836"); // Report Bug Channel
         if (bugChannel) await bugChannel.send({ embeds: [bugEmbed] });
-        
+
         await interaction.editReply({ content: "✅ Bug report kamu udah dikirim, makasih!" });
     } catch (e) {
         console.error("Gagal kirim bug report:", e);
@@ -932,7 +964,7 @@ async function handleSuggestFeatureModal(interaction) {
     try {
         const suggestChannel = await interaction.client.channels.fetch("1528572127635177595"); // Suggestion Channel
         if (suggestChannel) await suggestChannel.send({ embeds: [suggestEmbed] });
-        
+
         await interaction.editReply({ content: "✅ Suggestion kamu udah dikirim, makasih!" });
     } catch (e) {
         console.error("Gagal kirim suggestion:", e);
