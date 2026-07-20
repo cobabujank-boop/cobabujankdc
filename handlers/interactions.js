@@ -215,7 +215,7 @@ async function handleButton(interaction) {
                 .setCustomId(`section_${i}`)
                 .setLabel(`Section ${i} (Nama|item1|item2|...)`)
                 .setStyle(TextInputStyle.Paragraph)
-                .setRequired(false);
+                .setRequired(i === 1); // Section 1 wajib, sisanya opsional
 
             if (i === 1) sec.setPlaceholder("+|Added|New List Seed|New List Pet");
             else if (i === 2) sec.setPlaceholder("-|Deleted|Remove Feature Rollback|Remove Event Guild");
@@ -852,7 +852,7 @@ async function handleUpdateModalStep2(interaction) {
 
         embed2.addFields({
             name: `• **${sec.name}:**`,
-            value: bullet + "\n" + "▬".repeat(28),
+            value: bullet + "\n" + "▬".repeat(32),
             inline: false,
         });
     }
