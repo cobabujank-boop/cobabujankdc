@@ -813,51 +813,33 @@ async function handleUpdateModalStep2(interaction) {
         sections.push({ name: sectionName, items, prefix });
     }
 
-    const embeds = [];
-
-    // Embed 1: Info Utama
-    const embed1 = new EmbedBuilder()
-        .setColor(0x2b2d31)
-        .setTitle(draft.title);
+    const embed = new EmbedBuilder()
+        .setColor(0x2b2d31);
 
     if (draft.logoUrl) {
         try {
-            if (draft.logoUrl.startsWith("http")) embed1.setThumbnail(draft.logoUrl);
+            if (draft.logoUrl.startsWith("http")) embed.setThumbnail(draft.logoUrl);
         } catch (e) { }
     }
 
-    let desc1 = "";
+    let desc = `## ${draft.title}\n`;
     if (draft.pingRole) {
-        desc1 += `<@&${draft.pingRole}>\n`;
+        desc += `<@&${draft.pingRole}>\n`;
     }
-    desc1 += `• **Place:** ${draft.gameName}\n`;
-    desc1 += `• **Version:** ${draft.version}\n`;
+    desc += `- **Place:** ${draft.gameName}\n`;
+    desc += `- **Version:** ${draft.version}\n`;
     if (draft.devNotes) {
-        desc1 += `• **Developer Notes:**\n> ${draft.devNotes.replace(/\n/g, "\n> ")}`;
+        desc += `- **Developer Notes:**\n> ${draft.devNotes.replace(/\n/g, "\n> ")}\n`;
     }
-    embed1.setDescription(desc1);
-    embeds.push(embed1);
 
-    // Embed 2: Changelog Sections
-    if (sections.length > 0) {
-        const embed2 = new EmbedBuilder()
-            .setColor(0x2b2d31);
-            
-        let desc2 = "";
-        for (let i = 0; i < sections.length; i++) {
-            const sec = sections[i];
-            desc2 += `### • ${sec.name}:\n\n`;
-            
-            const bullet = sec.items.map((item) => `${sec.prefix} ${item}`).join("\n");
-            desc2 += bullet + "\n";
-            
-            if (i < sections.length - 1) {
-                desc2 += `\n---\n\n`;
-            }
-        }
-        embed2.setDescription(desc2);
-        embeds.push(embed2);
+    for (let i = 0; i < sections.length; i++) {
+        const sec = sections[i];
+        desc += `### - ${sec.name}:\n`;
+        const bullet = sec.items.map((item) => `${sec.prefix} ${item}`).join("\n");
+        desc += bullet + "\n";
     }
+
+    embed.setDescription(desc);
 
     const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -874,14 +856,10 @@ async function handleUpdateModalStep2(interaction) {
         const targetChannel = await interaction.client.channels.fetch(draft.targetChannelId);
         if (!targetChannel) throw new Error("Channel tidak ditemukan");
 
-        // Role ping is inside the embed now, but we can also ping in content to ensure notification if needed.
-        // Usually role mention in embed description doesn't ping, so we might want to put it in content.
-        // Let's keep it in content and embed description as requested by the look of the screenshot.
-        const content = draft.pingRole ? `<@&${draft.pingRole}>` : undefined;
-        await targetChannel.send({ content, embeds, components: [buttons] });
+        await targetChannel.send({ embeds: [embed], components: [buttons] });
 
         updateDraftMap.delete(interaction.user.id);
-        await interaction.editReply({ content: `✅ Update log berhasil dikirim ke ${targetChannel}!` });
+        await interaction.editReply({ content: \`✅ Update log berhasil dikirim ke ${targetChannel}!\` });
     } catch (error) {
         console.error("Gagal mengirim update log:", error);
         await interaction.editReply({ content: "❌ Gagal mengirim update log. Pastikan bot punya permission di channel tersebut." });
