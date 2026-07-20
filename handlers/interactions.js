@@ -834,16 +834,19 @@ async function handleUpdateModalStep2(interaction) {
     // ── Embed 2: Changelog Sections ──
     const embed2 = new EmbedBuilder().setColor(0x6b2fa0);
 
+    let changelogText = "";
     for (let i = 0; i < sections.length; i++) {
         const sec = sections[i];
         const bullet = sec.items.map((item) => `${sec.prefix} ${item}`).join("\n");
 
-        embed2.addFields({
-            name: `• **${sec.name}:**`,
-            value: bullet,
-            inline: false,
-        });
+        changelogText += `• **${sec.name}:**\n${bullet}`;
+
+        // Tambah 1 baris kosong antar section (kecuali section terakhir)
+        if (i < sections.length - 1) {
+            changelogText += "\n\n";
+        }
     }
+    embed2.setDescription(changelogText);
 
     const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
